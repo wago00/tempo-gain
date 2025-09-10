@@ -51,7 +51,6 @@ const Index = () => {
   const [projects, setProjects] = useState<Project[]>(sampleProjects);
   const [clients, setClients] = useState<Client[]>(sampleClients);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-  const [timeEntries, setTimeEntries] = useState([]);
 
   // Project handlers
   const handleAddProject = (projectData: Omit<Project, "id">) => {
@@ -106,7 +105,7 @@ const Index = () => {
   const renderActiveView = () => {
     switch (activeView) {
       case "dashboard":
-        return <Dashboard projects={projects} timeEntries={timeEntries} clients={clients} />;
+        return <Dashboard projects={projects} timeSlots={timeSlots} clients={clients} />;
       case "calendar":
         return (
           <WeeklyCalendar 
@@ -136,22 +135,8 @@ const Index = () => {
             onDeleteClient={handleDeleteClient}
           />
         );
-      case "timer":
-        return (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold mb-4">Timer</h1>
-            <p className="text-muted-foreground">Funzionalità timer in arrivo...</p>
-          </div>
-        );
-      case "settings":
-        return (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold mb-4">Impostazioni</h1>
-            <p className="text-muted-foreground">Pannello impostazioni in arrivo...</p>
-          </div>
-        );
       default:
-        return <Dashboard projects={projects} timeEntries={timeEntries} clients={clients} />;
+        return <Dashboard projects={projects} timeSlots={timeSlots} clients={clients} />;
     }
   };
 

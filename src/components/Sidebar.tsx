@@ -8,11 +8,9 @@ interface SidebarProps {
 
 const navigation = [
   { id: "dashboard", name: "Dashboard", icon: BarChart3 },
-  { id: "timer", name: "Timer", icon: Clock },
   { id: "calendar", name: "Calendario", icon: Calendar },
   { id: "projects", name: "Progetti", icon: FolderOpen },
   { id: "clients", name: "Clienti", icon: Users },
-  { id: "settings", name: "Impostazioni", icon: Settings },
 ];
 
 export default function Sidebar({ activeView, onViewChange }: SidebarProps) {

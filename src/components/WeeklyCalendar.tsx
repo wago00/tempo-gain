@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { TimeSlot, Project } from "@/types";
 import { cn } from "@/lib/utils";
+import TimeSlotDialog from "./TimeSlotDialog";
 
 interface WeeklyCalendarProps {
   timeSlots: TimeSlot[];
@@ -46,17 +47,6 @@ export default function WeeklyCalendar({
     setCurrentWeek(newDate);
   };
 
-  const handleCellClick = (date: Date, hour: number) => {
-    const startTime = new Date(date);
-    startTime.setHours(hour, 0, 0, 0);
-    
-    onAddTimeSlot({
-      startTime,
-      duration: 60, // 1 ora di default
-      description: "Nuovo slot",
-      projectId: projects[0]?.id
-    });
-  };
 
   const getTimeSlotForCell = (date: Date, hour: number) => {
     return timeSlots.find(slot => {
@@ -88,6 +78,11 @@ export default function WeeklyCalendar({
         </div>
         
         <div className="flex items-center gap-2">
+          <TimeSlotDialog 
+            projects={projects}
+            onAddTimeSlot={onAddTimeSlot}
+            defaultDate={new Date()}
+          />
           <Button 
             variant="outline" 
             size="sm" 
@@ -150,10 +145,8 @@ export default function WeeklyCalendar({
                   return (
                     <div
                       key={`${date.toISOString()}-${hour}`}
-                      onClick={() => !timeSlot && handleCellClick(date, hour)}
                       className={cn(
-                        "min-h-[60px] border border-border/30 cursor-pointer transition-all duration-200",
-                        "hover:bg-secondary/30 hover:border-primary/30",
+                        "min-h-[60px] border border-border/30 transition-all duration-200",
                         timeSlot ? "p-1" : "p-3"
                       )}
                     >
@@ -172,11 +165,7 @@ export default function WeeklyCalendar({
                             {Math.round(timeSlot.duration / 60 * 10) / 10}h
                           </div>
                         </div>
-                      ) : (
-                        <div className="flex items-center justify-center h-full opacity-0 hover:opacity-100 transition-opacity">
-                          <Plus className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                   );
                 })}

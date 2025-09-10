@@ -1,30 +1,30 @@
 import { Card } from "@/components/ui/card";
 import { Clock, DollarSign, Target, TrendingUp } from "lucide-react";
-import { Project, TimeEntry, Client } from "@/types";
+import { Project, TimeSlot, Client } from "@/types";
 
 interface DashboardProps {
   projects: Project[];
-  timeEntries: TimeEntry[];
+  timeSlots: TimeSlot[];
   clients: Client[];
 }
 
-export default function Dashboard({ projects, timeEntries, clients }: DashboardProps) {
+export default function Dashboard({ projects, timeSlots, clients }: DashboardProps) {
   // Calcoli per le metriche
-  const totalHoursToday = timeEntries
-    .filter(entry => {
+  const totalHoursToday = timeSlots
+    .filter(slot => {
       const today = new Date().toDateString();
-      return entry.startTime.toDateString() === today;
+      return slot.startTime.toDateString() === today;
     })
-    .reduce((sum, entry) => sum + entry.duration, 0) / 60;
+    .reduce((sum, slot) => sum + slot.duration, 0) / 60;
 
-  const totalEarningsToday = timeEntries
-    .filter(entry => {
+  const totalEarningsToday = timeSlots
+    .filter(slot => {
       const today = new Date().toDateString();
-      return entry.startTime.toDateString() === today;
+      return slot.startTime.toDateString() === today;
     })
-    .reduce((sum, entry) => {
-      const project = projects.find(p => p.id === entry.projectId);
-      return sum + (project?.hourlyRate || 0) * (entry.duration / 60);
+    .reduce((sum, slot) => {
+      const project = projects.find(p => p.id === slot.projectId);
+      return sum + (project?.hourlyRate || 0) * (slot.duration / 60);
     }, 0);
 
   const activeProjects = projects.length;
@@ -127,12 +127,12 @@ export default function Dashboard({ projects, timeEntries, clients }: DashboardP
         </Card>
 
         <Card className="p-6 shadow-soft">
-          <h3 className="text-lg font-semibold mb-4">Attività Recenti</h3>
+          <h3 className="text-lg font-semibold mb-4">Slot Recenti</h3>
           <div className="space-y-3">
-            {timeEntries.slice(-5).reverse().map((entry) => {
-              const project = projects.find(p => p.id === entry.projectId);
+            {timeSlots.slice(-5).reverse().map((slot) => {
+              const project = projects.find(p => p.id === slot.projectId);
               return (
-                <div key={entry.id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
+                <div key={slot.id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div 
                       className="w-3 h-3 rounded-full"
@@ -141,15 +141,15 @@ export default function Dashboard({ projects, timeEntries, clients }: DashboardP
                     <div>
                       <p className="font-medium text-foreground">{project?.name || 'Progetto sconosciuto'}</p>
                       <p className="text-sm text-muted-foreground">
-                        {entry.startTime.toLocaleTimeString('it-IT', { 
+                        {slot.startTime.toLocaleTimeString('it-IT', { 
                           hour: '2-digit', 
                           minute: '2-digit' 
-                        })} - {entry.description}
+                        })} - {slot.description || 'Nessuna descrizione'}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium">{Math.round(entry.duration / 60 * 10) / 10}h</p>
+                    <p className="text-sm font-medium">{Math.round(slot.duration / 60 * 10) / 10}h</p>
                   </div>
                 </div>
               );
