@@ -108,6 +108,7 @@ export default function TimeSlotDialog({ projects, onAddTimeSlot, defaultDate }:
               <Input
                 id="start-time"
                 type="time"
+                step="900"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 required
@@ -118,6 +119,7 @@ export default function TimeSlotDialog({ projects, onAddTimeSlot, defaultDate }:
               <Input
                 id="end-time"
                 type="time"
+                step="900"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 required

@@ -14,6 +14,12 @@ interface WeeklyCalendarProps {
 }
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8); // 8:00 to 19:00
+const TIME_SLOTS = [];
+for (let h = 8; h <= 19; h++) {
+  for (let m = 0; m < 60; m += 15) {
+    TIME_SLOTS.push({ hour: h, minute: m });
+  }
+}
 
 export default function WeeklyCalendar({ 
   timeSlots, 
@@ -48,17 +54,35 @@ export default function WeeklyCalendar({
   };
 
 
-  const getTimeSlotForCell = (date: Date, hour: number) => {
+  const getTimeSlotForCell = (date: Date, hour: number, minute: number) => {
     return timeSlots.find(slot => {
       const slotStart = new Date(slot.startTime);
-      const cellDate = new Date(date);
-      cellDate.setHours(hour, 0, 0, 0);
+      const slotEnd = new Date(slotStart.getTime() + slot.duration * 60 * 1000);
+      const cellStart = new Date(date);
+      cellStart.setHours(hour, minute, 0, 0);
+      const cellEnd = new Date(cellStart.getTime() + 15 * 60 * 1000);
       
       return (
-        slotStart.toDateString() === cellDate.toDateString() &&
-        slotStart.getHours() === hour
+        slotStart.toDateString() === cellStart.toDateString() &&
+        slotStart <= cellStart && 
+        slotEnd > cellStart
       );
     });
+  };
+
+  const getSlotSpan = (slot: TimeSlot, startHour: number, startMinute: number) => {
+    const slotStart = new Date(slot.startTime);
+    const cellStart = new Date(slotStart);
+    cellStart.setHours(startHour, startMinute, 0, 0);
+    
+    // Calculate how many 15-minute slots this time slot spans
+    const slotDurationMinutes = slot.duration;
+    const slotsSpanned = Math.ceil(slotDurationMinutes / 15);
+    
+    // Check if this is the first cell of the slot
+    const isFirstCell = slotStart.getHours() === startHour && slotStart.getMinutes() === startMinute;
+    
+    return { slotsSpanned, isFirstCell };
   };
 
   const getProjectColor = (projectId: string) => {
@@ -110,11 +134,11 @@ export default function WeeklyCalendar({
       {/* Calendar Grid */}
       <Card className="p-4 shadow-medium">
         <div className="overflow-x-auto">
-          <div className="grid grid-cols-8 gap-2 min-w-[800px]">
+          <div className="grid grid-cols-8 gap-1 min-w-[1000px]">
             {/* Header Row */}
-            <div className="p-3 text-sm font-medium text-muted-foreground">Ora</div>
+            <div className="p-2 text-sm font-medium text-muted-foreground sticky top-0 bg-background">Ora</div>
             {weekDates.map((date, index) => (
-              <div key={date.toISOString()} className="p-3 text-center">
+              <div key={date.toISOString()} className="p-2 text-center sticky top-0 bg-background">
                 <div className="text-sm font-medium text-muted-foreground">
                   {dayNames[index]}
                 </div>
@@ -130,43 +154,65 @@ export default function WeeklyCalendar({
             ))}
 
             {/* Time Slots */}
-            {HOURS.map(hour => (
-              <div key={hour} className="contents">
-                {/* Hour Label */}
-                <div className="p-3 text-sm text-muted-foreground font-medium border-r border-border/50">
-                  {hour}:00
+            {TIME_SLOTS.map(({ hour, minute }) => (
+              <div key={`${hour}-${minute}`} className="contents">
+                {/* Hour/Minute Label */}
+                <div className="p-2 text-xs text-muted-foreground font-medium border-r border-border/50 flex items-center">
+                  {minute === 0 ? (
+                    <span className="font-semibold">{hour}:00</span>
+                  ) : (
+                    <span className="text-muted-foreground/70">{hour}:{minute.toString().padStart(2, '0')}</span>
+                  )}
                 </div>
                 
                 {/* Time Cells */}
                 {weekDates.map(date => {
-                  const timeSlot = getTimeSlotForCell(date, hour);
+                  const timeSlot = getTimeSlotForCell(date, hour, minute);
                   const project = timeSlot ? projects.find(p => p.id === timeSlot.projectId) : null;
+                  
+                  if (timeSlot) {
+                    const { slotsSpanned, isFirstCell } = getSlotSpan(timeSlot, hour, minute);
+                    
+                    return (
+                      <div
+                        key={`${date.toISOString()}-${hour}-${minute}`}
+                        className="min-h-[30px] border border-border/30 p-1"
+                      >
+                        <div 
+                          className={cn(
+                            "h-full rounded-md text-white text-xs font-medium flex flex-col justify-center",
+                            isFirstCell ? "p-2" : "p-1"
+                          )}
+                          style={{ backgroundColor: getProjectColor(timeSlot.projectId || '') }}
+                        >
+                          {isFirstCell ? (
+                            <>
+                              <div className="truncate font-semibold">
+                                {project?.name || 'Progetto'}
+                              </div>
+                              {slotsSpanned > 2 && timeSlot.description && (
+                                <div className="truncate opacity-90 mt-1">
+                                  {timeSlot.description}
+                                </div>
+                              )}
+                              <div className="text-xs opacity-75 mt-1">
+                                {Math.round(timeSlot.duration / 60 * 10) / 10}h
+                              </div>
+                            </>
+                          ) : (
+                            // Continuation cell - just show a thin bar
+                            <div className="w-full h-full opacity-80" />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
                   
                   return (
                     <div
-                      key={`${date.toISOString()}-${hour}`}
-                      className={cn(
-                        "min-h-[60px] border border-border/30 transition-all duration-200",
-                        timeSlot ? "p-1" : "p-3"
-                      )}
-                    >
-                      {timeSlot ? (
-                        <div 
-                          className="h-full rounded-md p-2 text-white text-xs font-medium flex flex-col justify-center"
-                          style={{ backgroundColor: getProjectColor(timeSlot.projectId || '') }}
-                        >
-                          <div className="truncate font-semibold">
-                            {project?.name || 'Progetto'}
-                          </div>
-                          <div className="truncate opacity-90 mt-1">
-                            {timeSlot.description}
-                          </div>
-                          <div className="text-xs opacity-75 mt-1">
-                            {Math.round(timeSlot.duration / 60 * 10) / 10}h
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
+                      key={`${date.toISOString()}-${hour}-${minute}`}
+                      className="min-h-[30px] border border-border/30 hover:bg-secondary/30 transition-colors cursor-pointer"
+                    />
                   );
                 })}
               </div>
