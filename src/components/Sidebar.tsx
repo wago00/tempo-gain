@@ -1,5 +1,7 @@
-import { Calendar, Clock, Users, BarChart3, FolderOpen, Settings } from "lucide-react";
+import { Calendar, Clock, Users, BarChart3, FolderOpen, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
   activeView: string;
@@ -14,14 +16,25 @@ const navigation = [
 ];
 
 export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
+  const { signOut, user } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
-    <div className="w-64 bg-card border-r border-border h-screen sticky top-0">
+    <div className="w-64 bg-card border-r border-border h-screen sticky top-0 flex flex-col">
       <div className="p-6 border-b border-border">
         <h1 className="text-xl font-bold text-primary">TimeTracker Pro</h1>
         <p className="text-sm text-muted-foreground">Gestione tempo e progetti</p>
+        {user && (
+          <p className="text-xs text-muted-foreground mt-2">
+            {user.email}
+          </p>
+        )}
       </div>
       
-      <nav className="p-4 space-y-2">
+      <nav className="p-4 space-y-2 flex-1">
         {navigation.map((item) => {
           const Icon = item.icon;
           return (
@@ -42,6 +55,17 @@ export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
           );
         })}
       </nav>
+      
+      <div className="p-4 border-t border-border">
+        <Button
+          variant="outline"
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-2"
+        >
+          <LogOut size={16} />
+          Logout
+        </Button>
+      </div>
     </div>
   );
 }
