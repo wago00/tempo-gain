@@ -61,6 +61,7 @@ const Index = () => {
           <ProjectManager
             projects={projects}
             clients={clients}
+            timeSlots={timeSlots}
             onAddProject={addProject}
             onUpdateProject={updateProject}
             onDeleteProject={deleteProject}

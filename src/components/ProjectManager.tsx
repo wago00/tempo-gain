@@ -5,13 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, DollarSign, Clock, User, FolderOpen } from "lucide-react";
-import { Project, Client } from "@/types";
+import { Plus, Edit, Trash2, DollarSign, Clock, User, FolderOpen, TrendingUp } from "lucide-react";
+import { Project, Client, TimeSlot } from "@/types";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 interface ProjectManagerProps {
   projects: Project[];
   clients: Client[];
+  timeSlots: TimeSlot[];
   onAddProject: (project: Omit<Project, "id">) => void;
   onUpdateProject: (id: string, project: Partial<Project>) => void;
   onDeleteProject: (id: string) => void;
@@ -27,6 +29,7 @@ const PROJECT_COLORS = [
 export default function ProjectManager({
   projects,
   clients,
+  timeSlots,
   onAddProject,
   onUpdateProject,
   onDeleteProject
@@ -226,6 +229,16 @@ export default function ProjectManager({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {projects.map((project) => {
           const client = clients.find(c => c.id === project.clientId);
+          
+          // Calcolo ore spese per questo progetto
+          const projectTimeSlots = timeSlots.filter(slot => slot.projectId === project.id);
+          const hoursSpent = projectTimeSlots.reduce((sum, slot) => sum + slot.duration, 0) / 60;
+          const hoursProgress = project.estimatedHours > 0 ? (hoursSpent / project.estimatedHours) * 100 : 0;
+          
+          // Calcolo progresso compenso fisso
+          const earnedAmount = hoursSpent * project.hourlyRate;
+          const feeProgress = project.fixedFee ? (earnedAmount / project.fixedFee) * 100 : 0;
+          
           return (
             <Card key={project.id} className="p-6 shadow-soft hover:shadow-medium transition-all duration-300">
               <div className="flex items-start justify-between mb-4">
@@ -254,7 +267,7 @@ export default function ProjectManager({
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <User className="w-4 h-4" />
                   <span>{client?.name || 'Cliente non trovato'}</span>
@@ -265,15 +278,41 @@ export default function ProjectManager({
                   <span className="font-medium text-accent">€{project.hourlyRate}/h</span>
                 </div>
 
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <span>{project.estimatedHours}h stimate</span>
+                {/* Progress Ore */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-primary" />
+                      <span>Ore Lavorate</span>
+                    </div>
+                    <span className="font-medium">{hoursSpent.toFixed(1)}h / {project.estimatedHours}h</span>
+                  </div>
+                  <Progress 
+                    value={Math.min(hoursProgress, 100)} 
+                    className="h-2"
+                  />
+                  <div className="text-xs text-muted-foreground text-right">
+                    {hoursProgress.toFixed(0)}% completato
+                  </div>
                 </div>
 
+                {/* Progress Compenso Fisso */}
                 {project.fixedFee && (
-                  <div className="pt-2 border-t border-border">
-                    <div className="text-sm text-muted-foreground">Compenso fisso</div>
-                    <div className="text-lg font-semibold text-accent">€{project.fixedFee}</div>
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-accent" />
+                        <span>Compenso Fisso</span>
+                      </div>
+                      <span className="font-medium">€{earnedAmount.toFixed(0)} / €{project.fixedFee}</span>
+                    </div>
+                    <Progress 
+                      value={Math.min(feeProgress, 100)} 
+                      className="h-2"
+                    />
+                    <div className="text-xs text-muted-foreground text-right">
+                      {feeProgress.toFixed(0)}% guadagnato
+                    </div>
                   </div>
                 )}
               </div>
