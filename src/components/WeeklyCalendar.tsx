@@ -131,6 +131,57 @@ export default function WeeklyCalendar({
         </div>
       </div>
 
+      {/* Week Summary KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">Ore Totali Settimana</h3>
+          <p className="text-2xl font-bold text-foreground">
+            {Math.round(timeSlots
+              .filter(slot => {
+                const slotDate = new Date(slot.startTime);
+                return weekDates.some(date => 
+                  slotDate.toDateString() === date.toDateString()
+                );
+              })
+              .reduce((sum, slot) => sum + slot.duration, 0) / 60 * 10) / 10}h
+          </p>
+        </Card>
+        
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">Progetti Attivi</h3>
+          <p className="text-2xl font-bold text-foreground">
+            {new Set(timeSlots
+              .filter(slot => {
+                const slotDate = new Date(slot.startTime);
+                return weekDates.some(date => 
+                  slotDate.toDateString() === date.toDateString()
+                );
+              })
+              .map(slot => slot.projectId)
+              .filter(Boolean)
+            ).size}
+          </p>
+        </Card>
+        
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">Guadagno Stimato</h3>
+          <p className="text-2xl font-bold text-accent">
+            €{Math.round(timeSlots
+              .filter(slot => {
+                const slotDate = new Date(slot.startTime);
+                return weekDates.some(date => 
+                  slotDate.toDateString() === date.toDateString()
+                );
+              })
+              .reduce((sum, slot) => {
+                const project = projects.find(p => p.id === slot.projectId);
+                return sum + (project?.hourlyRate || 0) * (slot.duration / 60);
+              }, 0)
+            )}
+          </p>
+        </Card>
+      </div>
+
       {/* Calendar Grid */}
       <Card className="p-4 shadow-medium">
         <div className="overflow-x-auto">
@@ -220,57 +271,6 @@ export default function WeeklyCalendar({
           </div>
         </div>
       </Card>
-
-      {/* Week Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Ore Totali Settimana</h3>
-          <p className="text-2xl font-bold text-foreground">
-            {Math.round(timeSlots
-              .filter(slot => {
-                const slotDate = new Date(slot.startTime);
-                return weekDates.some(date => 
-                  slotDate.toDateString() === date.toDateString()
-                );
-              })
-              .reduce((sum, slot) => sum + slot.duration, 0) / 60 * 10) / 10}h
-          </p>
-        </Card>
-        
-        <Card className="p-4">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Progetti Attivi</h3>
-          <p className="text-2xl font-bold text-foreground">
-            {new Set(timeSlots
-              .filter(slot => {
-                const slotDate = new Date(slot.startTime);
-                return weekDates.some(date => 
-                  slotDate.toDateString() === date.toDateString()
-                );
-              })
-              .map(slot => slot.projectId)
-              .filter(Boolean)
-            ).size}
-          </p>
-        </Card>
-        
-        <Card className="p-4">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Guadagno Stimato</h3>
-          <p className="text-2xl font-bold text-accent">
-            €{Math.round(timeSlots
-              .filter(slot => {
-                const slotDate = new Date(slot.startTime);
-                return weekDates.some(date => 
-                  slotDate.toDateString() === date.toDateString()
-                );
-              })
-              .reduce((sum, slot) => {
-                const project = projects.find(p => p.id === slot.projectId);
-                return sum + (project?.hourlyRate || 0) * (slot.duration / 60);
-              }, 0)
-            )}
-          </p>
-        </Card>
-      </div>
     </div>
   );
 }
