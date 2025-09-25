@@ -267,9 +267,6 @@ export default function WeeklyCalendar({
                           </div>
                         );
                       })}
-                      
-                      {/* Click area for new slots */}
-                      <div className="absolute inset-0" />
                     </div>
                   );
                 })}

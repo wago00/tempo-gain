@@ -98,7 +98,7 @@ export default function TimeSlotDialog({
   };
 
   return (
-    <Dialog open={open || !!editingSlot} onOpenChange={(isOpen) => !isOpen && handleClose()}>
+    <Dialog open={open || !!editingSlot} onOpenChange={(isOpen) => { if (!editingSlot) setOpen(isOpen); if (!isOpen) handleClose(); }}>
       {!editingSlot && (
         <DialogTrigger asChild>
           <Button className="gap-2">
