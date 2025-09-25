@@ -216,11 +216,17 @@ export default function WeeklyCalendar({
                 
                 {/* Day Cells */}
                 {weekDates.map(date => {
-                  // Find all time slots for this hour
-                  const hourSlots = timeSlots.filter(slot => {
+                  // Find all time slots that are active during this hour
+                  const activeSlots = timeSlots.filter(slot => {
                     const slotStart = new Date(slot.startTime);
+                    const slotEnd = new Date(slotStart.getTime() + slot.duration * 60 * 1000);
+                    const hourStart = new Date(date);
+                    hourStart.setHours(hour, 0, 0, 0);
+                    const hourEnd = new Date(date);
+                    hourEnd.setHours(hour + 1, 0, 0, 0);
+                    
                     return slotStart.toDateString() === date.toDateString() && 
-                           slotStart.getHours() === hour;
+                           slotStart < hourEnd && slotEnd > hourStart;
                   });
 
                   return (
@@ -229,40 +235,57 @@ export default function WeeklyCalendar({
                       className="relative min-h-[60px] border-r border-b border-border/30 hover:bg-secondary/20 transition-colors"
                     >
                       {/* Render time slots */}
-                      {hourSlots.map(slot => {
+                      {activeSlots.map(slot => {
                         const slotStart = new Date(slot.startTime);
-                        const startMinute = slotStart.getMinutes();
-                        const durationMinutes = slot.duration;
+                        const slotEnd = new Date(slotStart.getTime() + slot.duration * 60 * 1000);
                         const project = projects.find(p => p.id === slot.projectId);
                         
-                        // Calculate position and height
-                        const top = (startMinute / 60) * 100;
-                        const height = (durationMinutes / 60) * 100;
+                        // Calculate position and height relative to current hour
+                        const hourStart = new Date(date);
+                        hourStart.setHours(hour, 0, 0, 0);
+                        const hourEnd = new Date(date);
+                        hourEnd.setHours(hour + 1, 0, 0, 0);
+                        
+                        const visibleStart = slotStart > hourStart ? slotStart : hourStart;
+                        const visibleEnd = slotEnd < hourEnd ? slotEnd : hourEnd;
+                        
+                        const startMinuteInHour = (visibleStart.getTime() - hourStart.getTime()) / (1000 * 60);
+                        const durationInHour = (visibleEnd.getTime() - visibleStart.getTime()) / (1000 * 60);
+                        
+                        const top = (startMinuteInHour / 60) * 100;
+                        const height = (durationInHour / 60) * 100;
+                        
+                        // Only show content in the first hour of the slot
+                        const isFirstHour = slotStart.getHours() === hour;
                         
                         return (
                           <div
-                            key={slot.id}
+                            key={`${slot.id}-${hour}`}
                             className="absolute left-1 right-1 rounded cursor-pointer hover:brightness-110 transition-all shadow-sm border border-white/20"
                             style={{
                               top: `${top}%`,
-                              height: `${Math.min(height, 100 - top)}%`,
+                              height: `${height}%`,
                               backgroundColor: getProjectColor(slot.projectId || ''),
-                              minHeight: '20px'
+                              minHeight: '10px'
                             }}
                             onClick={() => setEditingSlot(slot)}
                           >
-                            <div className="p-2 text-white text-xs h-full flex flex-col justify-center relative">
-                              <div className="font-semibold truncate text-shadow-sm" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
-                                {project?.name || 'Progetto'}
-                              </div>
-                              {durationMinutes >= 30 && slot.description && (
-                                <div className="truncate opacity-90 mt-1 text-shadow-sm" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
-                                  {slot.description}
-                                </div>
+                            <div className="p-1 text-white h-full flex flex-col justify-center relative overflow-hidden">
+                              {isFirstHour && (
+                                <>
+                                  <div className="text-[10px] font-semibold truncate leading-tight" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
+                                    {project?.name || 'Progetto'}
+                                  </div>
+                                  {slot.duration >= 30 && slot.description && (
+                                    <div className="text-[9px] truncate opacity-90 mt-0.5 leading-tight" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
+                                      {slot.description}
+                                    </div>
+                                  )}
+                                  <div className="text-[8px] opacity-90 mt-0.5 font-medium leading-tight" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
+                                    {Math.round(slot.duration / 60 * 10) / 10}h
+                                  </div>
+                                </>
                               )}
-                              <div className="text-xs opacity-90 mt-1 font-medium" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
-                                {Math.round(durationMinutes / 60 * 10) / 10}h
-                              </div>
                             </div>
                           </div>
                         );
