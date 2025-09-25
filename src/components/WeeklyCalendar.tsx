@@ -270,20 +270,22 @@ export default function WeeklyCalendar({
                             }}
                             onClick={() => setEditingSlot(slot)}
                           >
-                            <div className="p-1 text-white h-full flex flex-col justify-center relative overflow-hidden">
+                            <div className="p-1 text-white h-full flex flex-col justify-start relative overflow-hidden">
                               {isFirstHour && (
                                 <>
-                                  <div className="text-[10px] font-semibold truncate leading-tight" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
+                                  <div className="text-[10px] font-semibold truncate leading-none" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
                                     {project?.name || 'Progetto'}
                                   </div>
-                                  {slot.duration >= 30 && slot.description && (
-                                    <div className="text-[9px] truncate opacity-90 mt-0.5 leading-tight" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
+                                  {slot.duration >= 45 && slot.description && (
+                                    <div className="text-[9px] truncate opacity-90 mt-0.5 leading-snug" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
                                       {slot.description}
                                     </div>
                                   )}
-                                  <div className="text-[8px] opacity-90 mt-0.5 font-medium leading-tight" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
-                                    {Math.round(slot.duration / 60 * 10) / 10}h
-                                  </div>
+                                  {slot.duration > 30 && (
+                                    <div className="text-[8px] opacity-90 mt-0.5 font-medium leading-none" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
+                                      {Math.round(slot.duration / 60 * 10) / 10}h
+                                    </div>
+                                  )}
                                 </>
                               )}
                             </div>
