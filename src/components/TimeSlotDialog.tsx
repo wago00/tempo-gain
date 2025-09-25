@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,16 +16,42 @@ import { Project, TimeSlot } from "@/types";
 interface TimeSlotDialogProps {
   projects: Project[];
   onAddTimeSlot: (slot: Omit<TimeSlot, "id">) => void;
+  onUpdateTimeSlot?: (id: string, slot: Partial<TimeSlot>) => void;
+  editingSlot?: TimeSlot | null;
+  onClose?: () => void;
   defaultDate?: Date;
 }
 
-export default function TimeSlotDialog({ projects, onAddTimeSlot, defaultDate }: TimeSlotDialogProps) {
+export default function TimeSlotDialog({ 
+  projects, 
+  onAddTimeSlot, 
+  onUpdateTimeSlot,
+  editingSlot,
+  onClose,
+  defaultDate 
+}: TimeSlotDialogProps) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState<Date>(defaultDate || new Date());
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [projectId, setProjectId] = useState<string>("");
   const [description, setDescription] = useState("");
+
+  // Update state when editing slot changes
+  useEffect(() => {
+    if (editingSlot) {
+      const slotStart = new Date(editingSlot.startTime);
+      setDate(slotStart);
+      setStartTime(format(slotStart, "HH:mm"));
+      
+      const endDateTime = new Date(slotStart.getTime() + editingSlot.duration * 60 * 1000);
+      setEndTime(format(endDateTime, "HH:mm"));
+      
+      setProjectId(editingSlot.projectId || "");
+      setDescription(editingSlot.description || "");
+      setOpen(true);
+    }
+  }, [editingSlot]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,32 +71,45 @@ export default function TimeSlotDialog({ projects, onAddTimeSlot, defaultDate }:
     const startDateTime = new Date(date);
     startDateTime.setHours(startHour, startMinute, 0, 0);
 
-    onAddTimeSlot({
+    const slotData = {
       startTime: startDateTime,
       duration,
       projectId,
       description: description || undefined
-    });
+    };
 
+    if (editingSlot && onUpdateTimeSlot) {
+      onUpdateTimeSlot(editingSlot.id, slotData);
+    } else {
+      onAddTimeSlot(slotData);
+    }
+
+    handleClose();
+  };
+
+  const handleClose = () => {
     // Reset form
     setStartTime("09:00");
     setEndTime("10:00");
     setProjectId("");
     setDescription("");
     setOpen(false);
+    onClose?.();
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" />
-          Aggiungi Slot
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open || !!editingSlot} onOpenChange={(isOpen) => !isOpen && handleClose()}>
+      {!editingSlot && (
+        <DialogTrigger asChild>
+          <Button className="gap-2">
+            <Plus className="w-4 h-4" />
+            Aggiungi Slot
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Nuovo Slot di Tempo</DialogTitle>
+          <DialogTitle>{editingSlot ? 'Modifica Slot di Tempo' : 'Nuovo Slot di Tempo'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Data */}
@@ -164,11 +203,11 @@ export default function TimeSlotDialog({ projects, onAddTimeSlot, defaultDate }:
 
           {/* Buttons */}
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={handleClose}>
               Annulla
             </Button>
             <Button type="submit" disabled={!projectId}>
-              Aggiungi Slot
+              {editingSlot ? 'Salva Modifiche' : 'Aggiungi Slot'}
             </Button>
           </div>
         </form>
