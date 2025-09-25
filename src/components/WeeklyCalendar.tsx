@@ -103,11 +103,6 @@ export default function WeeklyCalendar({
         </div>
         
         <div className="flex items-center gap-2">
-          <TimeSlotDialog 
-            projects={projects}
-            onAddTimeSlot={onAddTimeSlot}
-            defaultDate={new Date()}
-          />
           <Button 
             variant="outline" 
             size="sm" 
@@ -129,6 +124,12 @@ export default function WeeklyCalendar({
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
+          <TimeSlotDialog 
+            projects={projects}
+            onAddTimeSlot={onAddTimeSlot}
+            onUpdateTimeSlot={onUpdateTimeSlot}
+            defaultDate={new Date()}
+          />
         </div>
       </div>
 
@@ -241,7 +242,7 @@ export default function WeeklyCalendar({
                         return (
                           <div
                             key={slot.id}
-                            className="absolute left-1 right-1 rounded cursor-pointer hover:brightness-110 transition-all"
+                            className="absolute left-1 right-1 rounded cursor-pointer hover:brightness-110 transition-all shadow-sm border border-white/20"
                             style={{
                               top: `${top}%`,
                               height: `${Math.min(height, 100 - top)}%`,
@@ -250,16 +251,16 @@ export default function WeeklyCalendar({
                             }}
                             onClick={() => setEditingSlot(slot)}
                           >
-                            <div className="p-2 text-white text-xs h-full flex flex-col justify-center">
-                              <div className="font-semibold truncate">
+                            <div className="p-2 text-white text-xs h-full flex flex-col justify-center relative">
+                              <div className="font-semibold truncate text-shadow-sm" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
                                 {project?.name || 'Progetto'}
                               </div>
                               {durationMinutes >= 30 && slot.description && (
-                                <div className="truncate opacity-90 mt-1">
+                                <div className="truncate opacity-90 mt-1 text-shadow-sm" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
                                   {slot.description}
                                 </div>
                               )}
-                              <div className="text-xs opacity-75 mt-1">
+                              <div className="text-xs opacity-90 mt-1 font-medium" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
                                 {Math.round(durationMinutes / 60 * 10) / 10}h
                               </div>
                             </div>
@@ -279,14 +280,16 @@ export default function WeeklyCalendar({
       </Card>
       
       {/* Edit Time Slot Dialog */}
-      <TimeSlotDialog 
-        projects={projects}
-        onAddTimeSlot={onAddTimeSlot}
-        onUpdateTimeSlot={onUpdateTimeSlot}
-        editingSlot={editingSlot}
-        onClose={() => setEditingSlot(null)}
-        defaultDate={new Date()}
-      />
+      {editingSlot && (
+        <TimeSlotDialog 
+          projects={projects}
+          onAddTimeSlot={onAddTimeSlot}
+          onUpdateTimeSlot={onUpdateTimeSlot}
+          editingSlot={editingSlot}
+          onClose={() => setEditingSlot(null)}
+          defaultDate={new Date()}
+        />
+      )}
     </div>
   );
 }
