@@ -16,6 +16,7 @@ const Index = () => {
     clients,
     projects,
     timeSlots,
+    invoices,
     loading,
     addClient,
     updateClient,
@@ -25,6 +26,8 @@ const Index = () => {
     deleteProject,
     addTimeSlot,
     updateTimeSlot,
+    generateInvoicesForProject,
+    updateInvoice,
   } = useSupabaseData();
 
   // Show loading spinner while data is loading
@@ -62,9 +65,12 @@ const Index = () => {
             projects={projects}
             clients={clients}
             timeSlots={timeSlots}
+            invoices={invoices}
             onAddProject={addProject}
             onUpdateProject={updateProject}
             onDeleteProject={deleteProject}
+            onGenerateInvoices={generateInvoicesForProject}
+            onUpdateInvoice={updateInvoice}
           />
         );
       case "clients":

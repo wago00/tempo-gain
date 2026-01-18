@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import type { Client, Project, TimeSlot } from "@/types";
+import type { Client, Project, TimeSlot, Invoice } from "@/types";
 
 export const useSupabaseData = () => {
   const { user } = useAuth();
@@ -10,6 +10,7 @@ export const useSupabaseData = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Load data when user is authenticated
@@ -21,6 +22,7 @@ export const useSupabaseData = () => {
       setClients([]);
       setProjects([]);
       setTimeSlots([]);
+      setInvoices([]);
       setLoading(false);
     }
   }, [user]);
@@ -33,7 +35,8 @@ export const useSupabaseData = () => {
       await Promise.all([
         loadClients(),
         loadProjects(), 
-        loadTimeSlots()
+        loadTimeSlots(),
+        loadInvoices()
       ]);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -125,6 +128,34 @@ export const useSupabaseData = () => {
         description: slot.description || undefined,
       }));
       setTimeSlots(mappedTimeSlots);
+    }
+  };
+
+  const loadInvoices = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("invoice_number", { ascending: true });
+
+    if (error) {
+      console.error("Error loading invoices:", error);
+      return;
+    }
+
+    if (data) {
+      const mappedInvoices: Invoice[] = data.map(invoice => ({
+        id: invoice.id,
+        projectId: invoice.project_id,
+        invoiceNumber: invoice.invoice_number,
+        amount: Number(invoice.amount),
+        isPaid: invoice.is_paid,
+        paidAt: invoice.paid_at ? new Date(invoice.paid_at) : undefined,
+        dueDate: invoice.due_date ? new Date(invoice.due_date) : undefined,
+      }));
+      setInvoices(mappedInvoices);
     }
   };
 
@@ -404,10 +435,118 @@ export const useSupabaseData = () => {
     });
   };
 
+  // Invoice operations
+  const generateInvoicesForProject = async (projectId: string, totalAmount: number, numberOfInvoices: number) => {
+    if (!user || numberOfInvoices <= 0) return;
+
+    const amountPerInvoice = totalAmount / numberOfInvoices;
+    
+    // First delete existing invoices for this project
+    await supabase
+      .from("invoices")
+      .delete()
+      .eq("project_id", projectId)
+      .eq("user_id", user.id);
+
+    // Create new invoices
+    const invoicesToCreate = Array.from({ length: numberOfInvoices }, (_, i) => ({
+      user_id: user.id,
+      project_id: projectId,
+      invoice_number: i + 1,
+      amount: amountPerInvoice,
+      is_paid: false,
+    }));
+
+    const { data, error } = await supabase
+      .from("invoices")
+      .insert(invoicesToCreate)
+      .select();
+
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Errore durante la creazione delle fatture",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (data) {
+      const newInvoices: Invoice[] = data.map(invoice => ({
+        id: invoice.id,
+        projectId: invoice.project_id,
+        invoiceNumber: invoice.invoice_number,
+        amount: Number(invoice.amount),
+        isPaid: invoice.is_paid,
+        paidAt: invoice.paid_at ? new Date(invoice.paid_at) : undefined,
+        dueDate: invoice.due_date ? new Date(invoice.due_date) : undefined,
+      }));
+      
+      // Remove old invoices for this project and add new ones
+      setInvoices(prev => [
+        ...prev.filter(inv => inv.projectId !== projectId),
+        ...newInvoices
+      ]);
+      
+      toast({
+        title: "Fatture create",
+        description: `${numberOfInvoices} fatture create con successo`,
+      });
+    }
+  };
+
+  const updateInvoice = async (id: string, isPaid: boolean) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("invoices")
+      .update({
+        is_paid: isPaid,
+        paid_at: isPaid ? new Date().toISOString() : null,
+      })
+      .eq("id", id)
+      .eq("user_id", user.id);
+
+    if (error) {
+      toast({
+        title: "Errore",
+        description: "Errore durante l'aggiornamento della fattura",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setInvoices(prev => prev.map(invoice => 
+      invoice.id === id ? { 
+        ...invoice, 
+        isPaid, 
+        paidAt: isPaid ? new Date() : undefined 
+      } : invoice
+    ));
+  };
+
+  const deleteInvoicesForProject = async (projectId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("invoices")
+      .delete()
+      .eq("project_id", projectId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Error deleting invoices:", error);
+      return;
+    }
+
+    setInvoices(prev => prev.filter(inv => inv.projectId !== projectId));
+  };
+
   return {
     clients,
     projects,
     timeSlots,
+    invoices,
     loading,
     addClient,
     updateClient,
@@ -417,5 +556,8 @@ export const useSupabaseData = () => {
     deleteProject,
     addTimeSlot,
     updateTimeSlot,
+    generateInvoicesForProject,
+    updateInvoice,
+    deleteInvoicesForProject,
   };
 };
