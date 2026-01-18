@@ -33,3 +33,13 @@ export interface TimeSlot {
   duration: number; // in minutes
   description?: string;
 }
+
+export interface Invoice {
+  id: string;
+  projectId: string;
+  invoiceNumber: number;
+  amount: number;
+  isPaid: boolean;
+  paidAt?: Date;
+  dueDate?: Date;
+}

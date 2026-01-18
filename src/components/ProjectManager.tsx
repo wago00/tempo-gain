@@ -5,18 +5,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, DollarSign, Clock, User, FolderOpen, TrendingUp } from "lucide-react";
-import { Project, Client, TimeSlot } from "@/types";
+import { Plus, Edit, Trash2, DollarSign, Clock, User, FolderOpen, TrendingUp, FileText, Check } from "lucide-react";
+import { Project, Client, TimeSlot, Invoice } from "@/types";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 interface ProjectManagerProps {
   projects: Project[];
   clients: Client[];
   timeSlots: TimeSlot[];
+  invoices: Invoice[];
   onAddProject: (project: Omit<Project, "id">) => void;
   onUpdateProject: (id: string, project: Partial<Project>) => void;
   onDeleteProject: (id: string) => void;
+  onGenerateInvoices: (projectId: string, totalAmount: number, numberOfInvoices: number) => void;
+  onUpdateInvoice: (id: string, isPaid: boolean) => void;
 }
 
 const PROJECT_COLORS = [
@@ -30,9 +34,12 @@ export default function ProjectManager({
   projects,
   clients,
   timeSlots,
+  invoices,
   onAddProject,
   onUpdateProject,
-  onDeleteProject
+  onDeleteProject,
+  onGenerateInvoices,
+  onUpdateInvoice
 }: ProjectManagerProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -42,7 +49,8 @@ export default function ProjectManager({
     hourlyRate: "",
     estimatedHours: "",
     fixedFee: "",
-    color: PROJECT_COLORS[0]
+    color: PROJECT_COLORS[0],
+    numberOfInvoices: "1"
   });
 
   const resetForm = () => {
@@ -52,7 +60,8 @@ export default function ProjectManager({
       hourlyRate: "",
       estimatedHours: "",
       fixedFee: "",
-      color: PROJECT_COLORS[0]
+      color: PROJECT_COLORS[0],
+      numberOfInvoices: "1"
     });
     setEditingProject(null);
   };
@@ -72,8 +81,14 @@ export default function ProjectManager({
 
     if (editingProject) {
       onUpdateProject(editingProject.id, projectData);
+      // Update invoices if fixed fee changed and there's a new number of invoices
+      if (projectData.fixedFee && parseInt(formData.numberOfInvoices) > 0) {
+        onGenerateInvoices(editingProject.id, projectData.fixedFee, parseInt(formData.numberOfInvoices));
+      }
     } else {
       onAddProject(projectData);
+      // Note: We'll generate invoices after the project is created
+      // This needs to be handled in the parent component after we get the new project ID
     }
 
     setIsDialogOpen(false);
@@ -82,13 +97,15 @@ export default function ProjectManager({
 
   const handleEdit = (project: Project) => {
     setEditingProject(project);
+    const projectInvoices = invoices.filter(inv => inv.projectId === project.id);
     setFormData({
       name: project.name,
       clientId: project.clientId,
       hourlyRate: project.hourlyRate.toString(),
       estimatedHours: project.estimatedHours.toString(),
       fixedFee: project.fixedFee?.toString() || "",
-      color: project.color
+      color: project.color,
+      numberOfInvoices: projectInvoices.length > 0 ? projectInvoices.length.toString() : "1"
     });
     setIsDialogOpen(true);
   };
@@ -176,16 +193,43 @@ export default function ProjectManager({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="fixedFee">Compenso Fisso (€) - Opzionale</Label>
-                <Input
-                  id="fixedFee"
-                  type="number"
-                  step="0.01"
-                  value={formData.fixedFee}
-                  onChange={(e) => setFormData(prev => ({ ...prev, fixedFee: e.target.value }))}
-                  placeholder="2000.00"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="fixedFee">Compenso Fisso (€)</Label>
+                  <Input
+                    id="fixedFee"
+                    type="number"
+                    step="0.01"
+                    value={formData.fixedFee}
+                    onChange={(e) => setFormData(prev => ({ ...prev, fixedFee: e.target.value }))}
+                    placeholder="2000.00"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="numberOfInvoices">Numero Fatture</Label>
+                  <Select 
+                    value={formData.numberOfInvoices} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, numberOfInvoices: value }))}
+                    disabled={!formData.fixedFee}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="1" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => (
+                        <SelectItem key={num} value={num.toString()}>
+                          {num} {num === 1 ? 'fattura' : 'fatture'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {formData.fixedFee && parseInt(formData.numberOfInvoices) > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      €{(parseFloat(formData.fixedFee) / parseInt(formData.numberOfInvoices)).toFixed(2)} per fattura
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -238,6 +282,12 @@ export default function ProjectManager({
           // Calcolo progresso compenso fisso
           const earnedAmount = hoursSpent * project.hourlyRate;
           const feeProgress = project.fixedFee ? (earnedAmount / project.fixedFee) * 100 : 0;
+          
+          // Fatture per questo progetto
+          const projectInvoices = invoices.filter(inv => inv.projectId === project.id).sort((a, b) => a.invoiceNumber - b.invoiceNumber);
+          const paidInvoices = projectInvoices.filter(inv => inv.isPaid);
+          const totalCollected = paidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+          const invoiceProgress = projectInvoices.length > 0 ? (paidInvoices.length / projectInvoices.length) * 100 : 0;
           
           return (
             <Card key={project.id} className="p-6 shadow-soft hover:shadow-medium transition-all duration-300">
@@ -312,6 +362,73 @@ export default function ProjectManager({
                     />
                     <div className="text-xs text-muted-foreground text-right">
                       {feeProgress.toFixed(0)}% guadagnato
+                    </div>
+                  </div>
+                )}
+
+                {/* Sezione Fatturazione */}
+                {projectInvoices.length > 0 && (
+                  <div className="space-y-3 pt-3 border-t border-border">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-primary" />
+                        <span className="font-medium">Fatturazione</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {paidInvoices.length}/{projectInvoices.length} pagate
+                      </span>
+                    </div>
+                    
+                    <Progress 
+                      value={invoiceProgress} 
+                      className="h-2"
+                    />
+                    
+                    {/* Lista Fatture */}
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {projectInvoices.map((invoice) => (
+                        <div 
+                          key={invoice.id}
+                          className={cn(
+                            "flex items-center justify-between p-2 rounded-lg text-sm transition-colors",
+                            invoice.isPaid 
+                              ? "bg-green-500/10" 
+                              : "bg-muted/50"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={invoice.isPaid}
+                              onCheckedChange={(checked) => onUpdateInvoice(invoice.id, !!checked)}
+                              className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                            />
+                            <span className={cn(
+                              invoice.isPaid && "line-through text-muted-foreground"
+                            )}>
+                              Fattura {invoice.invoiceNumber}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "font-medium",
+                              invoice.isPaid ? "text-green-600" : "text-foreground"
+                            )}>
+                              €{invoice.amount.toFixed(2)}
+                            </span>
+                            {invoice.isPaid && (
+                              <Check className="w-4 h-4 text-green-500" />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Totale Incassato */}
+                    <div className="flex items-center justify-between text-sm pt-2 border-t border-border">
+                      <span className="text-muted-foreground">Incassato</span>
+                      <span className="font-semibold text-green-600">
+                        €{totalCollected.toFixed(2)} / €{project.fixedFee?.toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 )}
