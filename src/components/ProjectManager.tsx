@@ -5,11 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit, Trash2, DollarSign, Clock, User, FolderOpen, TrendingUp, FileText, Check } from "lucide-react";
-import { Project, Client, TimeSlot, Invoice } from "@/types";
 import { Progress } from "@/components/ui/progress";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Plus, Search, FolderOpen, Clock, DollarSign, ChevronRight } from "lucide-react";
+import { Project, Client, TimeSlot, Invoice } from "@/types";
+import ProjectDetail from "@/components/ProjectDetail";
+
+const PROJECT_COLORS = [
+  '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
+  '#f43f5e', '#ef4444', '#f97316', '#f59e0b', '#eab308',
+  '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4',
+  '#0ea5e9', '#3b82f6', '#6366f1'
+];
 
 interface ProjectManagerProps {
   projects: Project[];
@@ -22,13 +30,6 @@ interface ProjectManagerProps {
   onGenerateInvoices: (projectId: string, totalAmount: number, numberOfInvoices: number) => void;
   onUpdateInvoice: (id: string, isPaid: boolean) => void;
 }
-
-const PROJECT_COLORS = [
-  '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
-  '#f43f5e', '#ef4444', '#f97316', '#f59e0b', '#eab308',
-  '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4',
-  '#0ea5e9', '#3b82f6', '#6366f1'
-];
 
 export default function ProjectManager({
   projects,
@@ -43,6 +44,8 @@ export default function ProjectManager({
 }: ProjectManagerProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     clientId: "",
@@ -68,7 +71,6 @@ export default function ProjectManager({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     const projectData = {
       name: formData.name,
       clientId: formData.clientId,
@@ -81,14 +83,11 @@ export default function ProjectManager({
 
     if (editingProject) {
       onUpdateProject(editingProject.id, projectData);
-      // Update invoices if fixed fee changed and there's a new number of invoices
       if (projectData.fixedFee && parseInt(formData.numberOfInvoices) > 0) {
         onGenerateInvoices(editingProject.id, projectData.fixedFee, parseInt(formData.numberOfInvoices));
       }
     } else {
       onAddProject(projectData);
-      // Note: We'll generate invoices after the project is created
-      // This needs to be handled in the parent component after we get the new project ID
     }
 
     setIsDialogOpen(false);
@@ -108,7 +107,37 @@ export default function ProjectManager({
       numberOfInvoices: projectInvoices.length > 0 ? projectInvoices.length.toString() : "1"
     });
     setIsDialogOpen(true);
+    setSelectedProjectId(null);
   };
+
+  // Detail view
+  const selectedProject = projects.find(p => p.id === selectedProjectId);
+  if (selectedProject) {
+    const client = clients.find(c => c.id === selectedProject.clientId);
+    return (
+      <ProjectDetail
+        project={selectedProject}
+        client={client}
+        timeSlots={timeSlots}
+        invoices={invoices}
+        onBack={() => setSelectedProjectId(null)}
+        onEdit={handleEdit}
+        onDelete={(id) => { onDeleteProject(id); setSelectedProjectId(null); }}
+        onUpdateInvoice={onUpdateInvoice}
+      />
+    );
+  }
+
+  // Filter
+  const filteredProjects = projects.filter(project => {
+    const client = clients.find(c => c.id === project.clientId);
+    const query = searchQuery.toLowerCase();
+    return (
+      project.name.toLowerCase().includes(query) ||
+      client?.name.toLowerCase().includes(query) ||
+      client?.company.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className="p-6 space-y-6">
@@ -118,7 +147,7 @@ export default function ProjectManager({
           <h1 className="text-3xl font-bold text-foreground">Gestione Progetti</h1>
           <p className="text-muted-foreground">Crea e gestisci i tuoi progetti</p>
         </div>
-        
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={resetForm} className="bg-gradient-to-r from-primary to-primary-glow hover:shadow-medium">
@@ -126,325 +155,152 @@ export default function ProjectManager({
               Nuovo Progetto
             </Button>
           </DialogTrigger>
-          
+
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>
-                {editingProject ? "Modifica Progetto" : "Nuovo Progetto"}
-              </DialogTitle>
+              <DialogTitle>{editingProject ? "Modifica Progetto" : "Nuovo Progetto"}</DialogTitle>
             </DialogHeader>
-            
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome Progetto</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Es. Sviluppo sito web"
-                  required
-                />
+                <Input id="name" value={formData.name} onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} placeholder="Es. Sviluppo sito web" required />
               </div>
-
               <div className="space-y-2">
                 <Label htmlFor="client">Cliente</Label>
-                <Select 
-                  value={formData.clientId} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, clientId: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleziona un cliente" />
-                  </SelectTrigger>
+                <Select value={formData.clientId} onValueChange={(value) => setFormData(prev => ({ ...prev, clientId: value }))}>
+                  <SelectTrigger><SelectValue placeholder="Seleziona un cliente" /></SelectTrigger>
                   <SelectContent>
                     {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name} - {client.company}
-                      </SelectItem>
+                      <SelectItem key={client.id} value={client.id}>{client.name} - {client.company}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="hourlyRate">Tariffa Oraria (€)</Label>
-                  <Input
-                    id="hourlyRate"
-                    type="number"
-                    step="0.01"
-                    value={formData.hourlyRate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, hourlyRate: e.target.value }))}
-                    placeholder="50.00"
-                    required
-                  />
+                  <Input id="hourlyRate" type="number" step="0.01" value={formData.hourlyRate} onChange={(e) => setFormData(prev => ({ ...prev, hourlyRate: e.target.value }))} placeholder="50.00" required />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="estimatedHours">Ore Stimate</Label>
-                  <Input
-                    id="estimatedHours"
-                    type="number"
-                    step="0.5"
-                    value={formData.estimatedHours}
-                    onChange={(e) => setFormData(prev => ({ ...prev, estimatedHours: e.target.value }))}
-                    placeholder="40"
-                    required
-                  />
+                  <Input id="estimatedHours" type="number" step="0.5" value={formData.estimatedHours} onChange={(e) => setFormData(prev => ({ ...prev, estimatedHours: e.target.value }))} placeholder="40" required />
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fixedFee">Compenso Fisso (€)</Label>
-                  <Input
-                    id="fixedFee"
-                    type="number"
-                    step="0.01"
-                    value={formData.fixedFee}
-                    onChange={(e) => setFormData(prev => ({ ...prev, fixedFee: e.target.value }))}
-                    placeholder="2000.00"
-                  />
+                  <Input id="fixedFee" type="number" step="0.01" value={formData.fixedFee} onChange={(e) => setFormData(prev => ({ ...prev, fixedFee: e.target.value }))} placeholder="2000.00" />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="numberOfInvoices">Numero Fatture</Label>
-                  <Select 
-                    value={formData.numberOfInvoices} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, numberOfInvoices: value }))}
-                    disabled={!formData.fixedFee}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="1" />
-                    </SelectTrigger>
+                  <Select value={formData.numberOfInvoices} onValueChange={(value) => setFormData(prev => ({ ...prev, numberOfInvoices: value }))} disabled={!formData.fixedFee}>
+                    <SelectTrigger><SelectValue placeholder="1" /></SelectTrigger>
                     <SelectContent>
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((num) => (
-                        <SelectItem key={num} value={num.toString()}>
-                          {num} {num === 1 ? 'fattura' : 'fatture'}
-                        </SelectItem>
+                      {[1,2,3,4,5,6,7,8,9,10,11,12].map((num) => (
+                        <SelectItem key={num} value={num.toString()}>{num} {num === 1 ? 'fattura' : 'fatture'}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {formData.fixedFee && parseInt(formData.numberOfInvoices) > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      €{(parseFloat(formData.fixedFee) / parseInt(formData.numberOfInvoices)).toFixed(2)} per fattura
-                    </p>
+                    <p className="text-xs text-muted-foreground">€{(parseFloat(formData.fixedFee) / parseInt(formData.numberOfInvoices)).toFixed(2)} per fattura</p>
                   )}
                 </div>
               </div>
-
               <div className="space-y-2">
                 <Label>Colore Progetto</Label>
                 <div className="flex flex-wrap gap-2">
                   {PROJECT_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, color }))}
-                      className={cn(
-                        "w-8 h-8 rounded-full border-2 transition-all",
-                        formData.color === color 
-                          ? "border-foreground scale-110" 
-                          : "border-border hover:scale-105"
-                      )}
+                    <button key={color} type="button" onClick={() => setFormData(prev => ({ ...prev, color }))}
+                      className={cn("w-8 h-8 rounded-full border-2 transition-all", formData.color === color ? "border-foreground scale-110" : "border-border hover:scale-105")}
                       style={{ backgroundColor: color }}
                     />
                   ))}
                 </div>
               </div>
-
               <div className="flex justify-end gap-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Annulla
-                </Button>
-                <Button type="submit">
-                  {editingProject ? "Aggiorna" : "Crea"} Progetto
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Annulla</Button>
+                <Button type="submit">{editingProject ? "Aggiorna" : "Crea"} Progetto</Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Projects Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {projects.map((project) => {
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Cerca progetti per nome o cliente..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Project List */}
+      <div className="space-y-2">
+        {filteredProjects.map((project) => {
           const client = clients.find(c => c.id === project.clientId);
-          
-          // Calcolo ore spese per questo progetto
           const projectTimeSlots = timeSlots.filter(slot => slot.projectId === project.id);
           const hoursSpent = projectTimeSlots.reduce((sum, slot) => sum + slot.duration, 0) / 60;
           const hoursProgress = project.estimatedHours > 0 ? (hoursSpent / project.estimatedHours) * 100 : 0;
-          
-          // Calcolo progresso compenso fisso
-          const earnedAmount = hoursSpent * project.hourlyRate;
-          const feeProgress = project.fixedFee ? (earnedAmount / project.fixedFee) * 100 : 0;
-          
-          // Fatture per questo progetto
-          const projectInvoices = invoices.filter(inv => inv.projectId === project.id).sort((a, b) => a.invoiceNumber - b.invoiceNumber);
-          const paidInvoices = projectInvoices.filter(inv => inv.isPaid);
-          const totalCollected = paidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-          const invoiceProgress = projectInvoices.length > 0 ? (paidInvoices.length / projectInvoices.length) * 100 : 0;
-          
+
           return (
-            <Card key={project.id} className="p-6 shadow-soft hover:shadow-medium transition-all duration-300">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: project.color }}
-                  />
-                  <h3 className="font-semibold text-foreground">{project.name}</h3>
+            <Card
+              key={project.id}
+              className="p-4 cursor-pointer hover:shadow-medium transition-all duration-200 hover:bg-muted/30"
+              onClick={() => setSelectedProjectId(project.id)}
+            >
+              <div className="flex items-center gap-4">
+                {/* Color dot */}
+                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
+
+                {/* Name & Client */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-foreground truncate">{project.name}</p>
+                  <p className="text-sm text-muted-foreground truncate">{client?.name ?? '—'}</p>
                 </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEdit(project)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onDeleteProject(project.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+
+                {/* Hours progress bar */}
+                <div className="hidden sm:flex items-center gap-3 w-48">
+                  <div className="flex-1">
+                    <Progress value={Math.min(hoursProgress, 100)} className="h-2" />
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {hoursSpent.toFixed(1)}/{project.estimatedHours}h
+                  </span>
                 </div>
+
+                {/* Rate badge */}
+                <Badge variant="secondary" className="hidden md:flex">
+                  <DollarSign className="w-3 h-3 mr-1" />
+                  €{project.hourlyRate}/h
+                </Badge>
+
+                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <User className="w-4 h-4" />
-                  <span>{client?.name || 'Cliente non trovato'}</span>
-                </div>
-
-                <div className="flex items-center gap-2 text-sm">
-                  <DollarSign className="w-4 h-4 text-accent" />
-                  <span className="font-medium text-accent">€{project.hourlyRate}/h</span>
-                </div>
-
-                {/* Progress Ore */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-primary" />
-                      <span>Ore Lavorate</span>
-                    </div>
-                    <span className="font-medium">{hoursSpent.toFixed(1)}h / {project.estimatedHours}h</span>
-                  </div>
-                  <Progress 
-                    value={Math.min(hoursProgress, 100)} 
-                    className="h-2"
-                  />
-                  <div className="text-xs text-muted-foreground text-right">
-                    {hoursProgress.toFixed(0)}% completato
-                  </div>
-                </div>
-
-                {/* Progress Compenso Fisso */}
-                {project.fixedFee && (
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-accent" />
-                        <span>Compenso Fisso</span>
-                      </div>
-                      <span className="font-medium">€{earnedAmount.toFixed(0)} / €{project.fixedFee}</span>
-                    </div>
-                    <Progress 
-                      value={Math.min(feeProgress, 100)} 
-                      className="h-2"
-                    />
-                    <div className="text-xs text-muted-foreground text-right">
-                      {feeProgress.toFixed(0)}% guadagnato
-                    </div>
-                  </div>
-                )}
-
-                {/* Sezione Fatturazione */}
-                {projectInvoices.length > 0 && (
-                  <div className="space-y-3 pt-3 border-t border-border">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-primary" />
-                        <span className="font-medium">Fatturazione</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {paidInvoices.length}/{projectInvoices.length} pagate
-                      </span>
-                    </div>
-                    
-                    <Progress 
-                      value={invoiceProgress} 
-                      className="h-2"
-                    />
-                    
-                    {/* Lista Fatture */}
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {projectInvoices.map((invoice) => (
-                        <div 
-                          key={invoice.id}
-                          className={cn(
-                            "flex items-center justify-between p-2 rounded-lg text-sm transition-colors",
-                            invoice.isPaid 
-                              ? "bg-green-500/10" 
-                              : "bg-muted/50"
-                          )}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={invoice.isPaid}
-                              onCheckedChange={(checked) => onUpdateInvoice(invoice.id, !!checked)}
-                              className="data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
-                            />
-                            <span className={cn(
-                              invoice.isPaid && "line-through text-muted-foreground"
-                            )}>
-                              Fattura {invoice.invoiceNumber}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className={cn(
-                              "font-medium",
-                              invoice.isPaid ? "text-green-600" : "text-foreground"
-                            )}>
-                              €{invoice.amount.toFixed(2)}
-                            </span>
-                            {invoice.isPaid && (
-                              <Check className="w-4 h-4 text-green-500" />
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {/* Totale Incassato */}
-                    <div className="flex items-center justify-between text-sm pt-2 border-t border-border">
-                      <span className="text-muted-foreground">Incassato</span>
-                      <span className="font-semibold text-green-600">
-                        €{totalCollected.toFixed(2)} / €{project.fixedFee?.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                )}
+              {/* Mobile progress */}
+              <div className="sm:hidden mt-3 flex items-center gap-3">
+                <Clock className="w-3 h-3 text-muted-foreground" />
+                <Progress value={Math.min(hoursProgress, 100)} className="h-2 flex-1" />
+                <span className="text-xs text-muted-foreground">{hoursSpent.toFixed(1)}/{project.estimatedHours}h</span>
               </div>
             </Card>
           );
         })}
 
-        {/* Empty State */}
+        {filteredProjects.length === 0 && projects.length > 0 && (
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground">Nessun progetto trovato per "{searchQuery}"</p>
+          </Card>
+        )}
+
         {projects.length === 0 && (
           <Card className="col-span-full p-12 text-center">
-            <div className="text-muted-foreground mb-4">
-              <FolderOpen className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-medium mb-2">Nessun progetto</h3>
-              <p>Inizia creando il tuo primo progetto</p>
-            </div>
+            <FolderOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <h3 className="text-lg font-medium mb-2 text-foreground">Nessun progetto</h3>
+            <p className="text-muted-foreground">Inizia creando il tuo primo progetto</p>
           </Card>
         )}
       </div>
